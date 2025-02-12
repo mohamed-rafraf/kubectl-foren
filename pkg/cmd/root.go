@@ -40,5 +40,6 @@ func newRoot() *cobra.Command {
 		"text",
 		"format for logging")
 
+	rootCmd.AddCommand(nodeProcessCmd(fs))
 	return rootCmd
 }
