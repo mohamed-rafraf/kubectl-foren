@@ -9,37 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	ctrlfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-func TestNewDeployPodTask(t *testing.T) {
-	// Create a fake client
-	schema := runtime.NewScheme()
-	corev1.AddToScheme(schema)
-	k8sClient := ctrlfake.NewClientBuilder().WithScheme(schema).Build()
-
-	// Initialize state
-	s := &state.State{
-		K8sClient: k8sClient,
-		Context:   context.TODO(),
-		Logger:    newTestLogger(),
-	}
-
-	// Define task
-	podName := "test-pod"
-	task := NewDeployPodTask(s, podName)
-
-	// Run task
-	err := task.Fn(s)
-	assert.NoError(t, err)
-
-	//Verify pod creation using the controller-runtime fake client
-	pod := &corev1.Pod{}
-	err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: podName, Namespace: "default"}, pod)
-	assert.NoError(t, err)
-	assert.Equal(t, podName, pod.Name)
-}
 
 // Initialize a logrus logger
 func newTestLogger() logrus.FieldLogger {
@@ -49,4 +22,49 @@ func newTestLogger() logrus.FieldLogger {
 		FullTimestamp: true,
 	})
 	return logger.WithField("component", "test")
+}
+
+func TestDeployDeletePod(t *testing.T) {
+	//Create a scheme and register required types
+	schema := runtime.NewScheme()
+	err := corev1.AddToScheme(schema)
+	assert.NoError(t, err)
+
+	//Create a fake controller-runtime client
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(schema). // Use the updated scheme
+		Build()
+
+	//Initialize state
+	ctx := context.TODO()
+	s := &state.State{
+		K8sClient:  k8sClient,
+		RESTConfig: &rest.Config{}, // Dummy REST config for testing
+		Context:    ctx,
+		Logger:     newTestLogger(),
+	}
+
+	//Define pod name
+	podName := "test-pod"
+
+	//Deploy the pod
+	deployTask := NewDeployPodTask(s, podName)
+	err = deployTask.Fn(s)
+	assert.NoError(t, err)
+
+	//Verify pod creation
+	pod := &corev1.Pod{}
+	err = k8sClient.Get(ctx, client.ObjectKey{Name: podName, Namespace: "default"}, pod)
+	assert.NoError(t, err)
+	assert.Equal(t, podName, pod.Name)
+
+	//Delete the pod
+	deleteTask := NewDeletePodTask(s, podName)
+	err = deleteTask.Fn(s)
+	assert.NoError(t, err)
+
+	//Verify pod deletion
+	err = k8sClient.Get(ctx, client.ObjectKey{Name: podName, Namespace: "default"}, pod)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
 }
