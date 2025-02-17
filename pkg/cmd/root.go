@@ -41,5 +41,7 @@ func newRoot() *cobra.Command {
 		"format for logging")
 
 	rootCmd.AddCommand(nodeProcessCmd(fs))
+	rootCmd.AddCommand(nodeNetworkCmd(fs))
+
 	return rootCmd
 }

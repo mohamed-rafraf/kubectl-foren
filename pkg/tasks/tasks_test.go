@@ -48,7 +48,7 @@ func TestDeployDeletePod(t *testing.T) {
 	podName := "test-pod"
 
 	//Deploy the pod
-	deployTask := NewDeployPodTask(s, podName)
+	deployTask := DeloyForenPod(s, podName)
 	err = deployTask.Fn(s)
 	assert.NoError(t, err)
 
@@ -59,7 +59,7 @@ func TestDeployDeletePod(t *testing.T) {
 	assert.Equal(t, podName, pod.Name)
 
 	//Delete the pod
-	deleteTask := NewDeletePodTask(s, podName)
+	deleteTask := DeleteForenPod(s, podName)
 	err = deleteTask.Fn(s)
 	assert.NoError(t, err)
 
