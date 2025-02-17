@@ -9,11 +9,11 @@ import (
 	"github.com/spf13/pflag"
 )
 
-type nodeProcessOpts struct {
+type nodeNetworkOpts struct {
 	globalOptions
 }
 
-func (opts *nodeProcessOpts) BuildState() (*state.State, error) {
+func (opts *nodeNetworkOpts) BuildState() (*state.State, error) {
 	s, err := opts.globalOptions.BuildState()
 	if err != nil {
 		return nil, err
@@ -22,11 +22,11 @@ func (opts *nodeProcessOpts) BuildState() (*state.State, error) {
 	return s, nil
 }
 
-func nodeProcessCmd(rootFlags *pflag.FlagSet) *cobra.Command {
-	opts := &nodeProcessOpts{}
+func nodeNetworkCmd(rootFlags *pflag.FlagSet) *cobra.Command {
+	opts := &nodeNetworkOpts{}
 	cmd := &cobra.Command{
-		Use:           "node-process [node-name]",
-		Short:         "List running processes on a node",
+		Use:           "node-net [node-name]",
+		Short:         "List network interfaces on a node",
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, args []string) error {
 			nodeName := args[0]
@@ -42,22 +42,26 @@ func nodeProcessCmd(rootFlags *pflag.FlagSet) *cobra.Command {
 				return err
 			}
 
-			return runNodeProcessCmd(st, opts, nodeName)
+			return runNodeNetworkCmd(st, opts, nodeName)
 		},
 	}
 	return cmd
 }
 
-// runNodeProcessCmd orchestrates the deployment of a temporary pod to list running processes on a node.
-func runNodeProcessCmd(st *state.State, _ *nodeProcessOpts, nodeName string) error {
-	st.Logger.Info(fmt.Sprintf("Listing the running processes on %s", nodeName))
-	// Define the task list for node process command
+// runNodeNetworkCmd lists the network interfaces in node.
+func runNodeNetworkCmd(st *state.State, _ *nodeNetworkOpts, nodeName string) error {
+	st.Logger.Info(fmt.Sprintf("Listing the network interfaces on %s", nodeName))
 	taskList := tasks.Tasks{
 		tasks.DeloyForenPod(st, nodeName),
 		tasks.WaitForenPodRunning(st, nodeName),
-		tasks.ExecuteInteractive(st, nodeName, "top"),
+		tasks.ExecuteNoraml(st, nodeName, "ip addr"),
 		tasks.DeleteForenPod(st, nodeName),
 	}
 
-	return taskList.Run(st)
+	err := taskList.Run(st)
+	if err != nil {
+		tasks.DeleteForenPod(st, nodeName).Fn(st)
+		return err
+	}
+	return nil
 }
